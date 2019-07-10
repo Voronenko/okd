@@ -1,0 +1,75 @@
+# masters and nodes groups
+[OSEv3:children]
+masters
+nodes
+etcd
+
+# Set variables common for all OSEv3 hosts
+[OSEv3:vars]
+# SSH user, this user should allow ssh based auth without requiring a password
+ansible_ssh_user=vagrant
+os_firewall_use_firewalld=True
+
+# If ansible_ssh_user is not root, ansible_become must be set to true
+ansible_become=true
+
+openshift_deployment_type=origin
+openshift_release='{{OPENSHIFT_RELEASE}}'
+
+# Specify an exact rpm version to install or configure.
+# WARNING: This value will be used for all hosts in RPM based environments, even those that have another version installed.
+# This could potentially trigger an upgrade and downtime, so be careful with modifying this value after the cluster is set up.
+#openshift_pkg_version=-{{OPENSHIFT_PKG_VERSION}}
+
+# uncomment the following to enable htpasswd authentication; defaults to DenyAllPasswordIdentityProvider
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'{{HTPASSWORD_FILENAME}}}]
+# Default login account: admin / admin
+openshift_master_htpasswd_users={'admin': '$apr1$ZZPMRUz8$/uqRbAFgpDjm0cirIS6S11'}
+
+openshift_disable_check=disk_availability,memory_availability,docker_storage,docker_image_availability
+openshift_docker_options=" --selinux-enabled --log-driver=journald --storage-driver=overlay"
+
+openshift_enable_service_catalog=true
+template_service_broker_install=true
+
+# openshift_hosted_manage_registry=false
+
+# OpenShift Router Options
+# Router selector (optional)
+# Router will only be created if nodes matching this label are present.
+# Default value: 'region=infra'
+# openshift_router_selector='node-role.kubernetes.io/infra=true'
+# openshift_registry_selector='node-role.kubernetes.io/infra=true'
+
+# default subdomain to use for exposed routes
+openshift_master_default_subdomain=openshift.openshift.local
+
+# host group for masters
+[masters]
+master.openshift.local etcd_ip={{NETWORK_BASE}}.101 openshift_host={{NETWORK_BASE}}.101 ansible_ssh_private_key_file="/home/vagrant/.ssh/master.key"
+
+# host group for etcd
+[etcd]
+master.openshift.local etcd_ip={{NETWORK_BASE}}.101 openshift_host={{NETWORK_BASE}}.101 ansible_ssh_private_key_file="/home/vagrant/.ssh/master.key"
+#
+# host group for nodes, includes region info
+# For openshift_node_labels strategies, the following reference links might be helpful
+# to understand why we choose this current solution:
+# - https://github.com/openshift/openshift-ansible#setup
+# - https://github.com/openshift/openshift-ansible#node-group-definition-and-mapping
+# - https://docs.okd.io/3.7/install_config/install/advanced_install.html#configuring-node-host-labels
+# - https://docs.okd.io/3.9/install_config/install/advanced_install.html#configuring-node-host-labels
+# - https://docs.okd.io/3.10/install/configuring_inventory_file.html#configuring-node-host-labels
+#
+# The default node selector for
+# release-3.9 ( or prev versions ): 'region=infra'
+# release-3.10: 'node-role.kubernetes.io/infra=true'
+#
+# But release-3.9 starts to enable node roles features. For backward compatibilities, we
+# override the default values of openshift_router_selector and openshift_registry_selector
+# from 'region=infra' to 'node-role.kubernetes.io/infra=true'
+#
+[nodes]
+master.openshift.local containerized=false etcd_ip={{NETWORK_BASE}}.101 openshift_host={{NETWORK_BASE}}.101 ansible_ssh_private_key_file="/home/vagrant/.ssh/master.key" openshift_schedulable=true {{NODE_GROUP_MASTER_INFRA}}
+node01.openshift.local etcd_ip={{NETWORK_BASE}}.102 openshift_host={{NETWORK_BASE}}.102 ansible_ssh_private_key_file="/home/vagrant/.ssh/node01.key" openshift_schedulable=true {{NODE_GROUP_COMPUTE}}
+node02.openshift.local etcd_ip={{NETWORK_BASE}}.103 openshift_host={{NETWORK_BASE}}.103 ansible_ssh_private_key_file="/home/vagrant/.ssh/node02.key" openshift_schedulable=true {{NODE_GROUP_COMPUTE}}
