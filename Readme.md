@@ -93,7 +93,7 @@ $ ./okd-setup.sh
 ### OpenShift Web Console
 
 should be available at https://master.openshift.local:8443/
-The default login account is **admin/password**
+The default login account is **admin/admin**
 
 (default login is configured in `ansible-hosts` L27)
 
