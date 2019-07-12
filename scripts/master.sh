@@ -8,15 +8,23 @@ yum -y install git net-tools bind-utils iptables-services bridge-utils bash-comp
 # Sourcing common functions
 . /vagrant/scripts/common.sh
 
-if [[ "$(version ${OPENSHIFT_RELEASE})" -gt "$(version 3.7)" ]]; then
-    yum -y install https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.6.6-1.el7.ans.noarch.rpm
+if type ansible 2>/dev/null; then
+        echo "ansible already exists"
 else
-    yum -y install https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.5.9-1.el7.ans.noarch.rpm
+  if [[ "$(version ${OPENSHIFT_RELEASE})" -gt "$(version 3.7)" ]]; then
+      yum -y install https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.6.6-1.el7.ans.noarch.rpm || true
+  else
+      yum -y install https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.5.9-1.el7.ans.noarch.rpm || true
+  fi
 fi
 
+echo "Cloning https://github.com/openshift/openshift-ansible.git"
+
+if [[ ! -d /home/vagrant/openshift-ansible ]]; then
 git clone -b ${OPENSHIFT_ANSIBLE_BRANCH} https://github.com/openshift/openshift-ansible.git /home/vagrant/openshift-ansible
+fi
 
-
+echo "Getting /etc/ansible/hosts"
 if [[ -f /etc/ansible/hosts ]]; then
     mv /etc/ansible/hosts /etc/ansible/hosts.bak
 fi

@@ -39,6 +39,33 @@ Vagrant.configure("2") do |config|
       node.vm.network "private_network", ip: "#{NETWORK_BASE}.#{MASTER_HOST_ADDR + i}"
       node.vm.hostname = "node0#{i}.openshift.local"
 
+     # Vagrant's "change host name" sets the short host name.
+     # Before we undo the /etc/hosts silliness (see below) let's
+     # reset /etc/hostname to the *full* host name
+     #
+      node.vm.provision "shell",
+        inline: "hostname --fqdn > /etc/hostname && hostname -F /etc/hostname"
+
+     # Vagrant's "change host name" capability for Fedora
+     # maps hostname to loopback, conflicting with hostmanager.
+     # We must repair /etc/hosts
+     #
+
+      node.vm.provision "shell", inline: <<-SHELL
+        sudo sed -ri 's/127\.0\.0\.1\s.*node01.openshift.local/#127.0.0.1 node01.openshift.local node01/' /etc/hosts
+        sudo sed -ri 's/127\.0\.0\.1\s.*node02.openshift.local/#127.0.0.1 node02.openshift.local node02/' /etc/hosts
+      SHELL
+
+      node.vm.provision "shell" do |s|
+        ssh_pub_key = File.readlines("#{Dir.home}/.ssh/id_rsa.pub").first.strip
+        s.inline = <<-SHELL
+          echo #{ssh_pub_key} >> /home/vagrant/.ssh/authorized_keys
+          mkdir -p /root/.ssh
+          touch /root/.ssh/authorized_keys
+          echo #{ssh_pub_key} >> /root/.ssh/authorized_keys
+        SHELL
+      end
+
       if "#{i}" == "1"
         node.hostmanager.aliases = %w(lb.openshift.local)
       end
@@ -66,7 +93,33 @@ Vagrant.configure("2") do |config|
       vb.memory = "3096"
     end
 
+    node.vm.provision "shell" do |s|
+      ssh_pub_key = File.readlines("#{Dir.home}/.ssh/id_rsa.pub").first.strip
+      s.inline = <<-SHELL
+        echo #{ssh_pub_key} >> /home/vagrant/.ssh/authorized_keys
+        mkdir -p /root/.ssh
+        touch /root/.ssh/authorized_keys
+        echo #{ssh_pub_key} >> /root/.ssh/authorized_keys
+      SHELL
+    end
+
+     # Vagrant's "change host name" sets the short host name.
+     # Before we undo the /etc/hosts silliness (see below) let's
+     # reset /etc/hostname to the *full* host name
+     #
+    node.vm.provision "shell",
+      inline: "hostname --fqdn > /etc/hostname && hostname -F /etc/hostname"
+
+     # Vagrant's "change host name" capability for Fedora
+     # maps hostname to loopback, conflicting with hostmanager.
+     # We must repair /etc/hosts
+     #
     node.vm.provision "shell", inline: <<-SHELL
+      sudo sed -ri 's/127\.0\.0\.1\s.*master.openshift.local/#127.0.0.1 master.openshift.local master/' /etc/hosts
+    SHELL
+
+    node.vm.provision "shell", inline: <<-SHELL
+      hostnamectl set-hostname master.openshift.local
       /vagrant/scripts/master.sh #{OPENSHIFT_RELEASE} #{OPENSHIFT_ANSIBLE_BRANCH} #{NETWORK_BASE}
     SHELL
 
